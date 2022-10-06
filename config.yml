@@ -1,0 +1,36 @@
+tasks:
+  - name: Install PHP
+    type: apt-install
+    data:
+      - package: php 
+
+  - name: Install Apache
+    type: apt-install
+    data:
+      - package: apache2
+
+  - name: Install Apache PHP module
+    type: apt-install
+    data:
+      - package: libapache2-mod-php
+
+  - name: Restart Apache
+    type: systemctl-restart
+    data:
+      - service: apache2.service
+
+  - name: Create PHP file
+    type: file-create
+    data:
+      - content:
+          # <?php
+          # header("Content-Type: text/plain");
+          # echo "Hello, world!\n";
+        owner: root
+        group: admin
+        perms: 744
+
+  - name: Restart Apache
+    type: systemctl-restart
+    data:
+      - service: apache2.service
