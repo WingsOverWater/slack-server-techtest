@@ -19,3 +19,4 @@
 * in terms of improvements/building the tool out, the same pattern should work for other types of tasks if necessary.  The config schema might need to be built out for different types of tasks.
 * code is optimised for readability and maintainability, not for speed - there is always a degree of trade-off here
 * notes about why I did the server restarts the way that I did
+* explanation of parsing tasks on the fly rather than parsing the entire file and then handing off in turn - I'm unsure that parsing on the fly is the right way to do this, but for a proof of concept, it seemed to result in cleaner, more readable code
