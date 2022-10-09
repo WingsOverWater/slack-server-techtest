@@ -1,3 +1,4 @@
+import { exec } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -5,7 +6,46 @@ export interface Task {
   name: string
   type: string // possibly should be enum?
   command: string
-  args: {}
+  args: {} // this may not parse correctly?
+  restart?: {
+    service: string
+  }
+}
+
+export interface PackageTask {
+  name: string
+  type: string // possibly should be enum?
+  command: string
+  args: {
+    package: string
+  }
+  restart?: {
+    service: string
+  }
+}
+
+export interface FileTask {
+  name: string
+  type: string // possibly should be enum?
+  command: string
+  args: {
+    content: string
+    owner: string
+    group: string
+    perms: string
+  }
+  restart?: {
+    service: string
+  }
+}
+
+export interface ServiceTask {
+  name: string
+  type: string // possibly should be enum?
+  command: string
+  args: {
+    service: string
+  }
 }
 
 export interface ConfigData {
@@ -14,7 +54,7 @@ export interface ConfigData {
 
 class ConfigurationParser {
   private configData: ConfigData
-  // some of these methods will also need to be private - is a singleton class the right way to do this?
+  // is a singleton class the right way to do this?
 
   readConfig (filePath: string): void {
     this.configData = JSON.parse(fs.readFileSync(path.join(__dirname, filePath), 'utf8'))
@@ -23,54 +63,134 @@ class ConfigurationParser {
     this.createConfig(this.configData)
     }
 
-  createConfig (configData: ConfigData): void {
+  private createConfig (configData: ConfigData): void {
     configData.tasks.forEach(taskData => {
       switch(taskData.type){
         case "package": {
-          // hand off to package parser
+          this.parsePackageOptions(taskData as PackageTask)
           break
         }
         case "file": {
-          // hand off to file parser
+          this.parseFileOptions(taskData as FileTask)
+          break
+        }
+        case "service": {
+          this.parseServiceOptions(taskData as ServiceTask)
           break
         }
         default: {
-          throw new Error("Unrecognised task type.  Valid tasks: package, file")
+          throw new Error("Unrecognised task type.  Valid tasks: package, file, service")
         }
       }
     })
   }
 
-  parsePackageOptions (): void {
-    // package install
-    // package update
-    // package delete
+  private parsePackageOptions (packageData: PackageTask): void {
+    let packageShellCommand: string
+    switch(packageData.command){
+      case "install": {
+        packageShellCommand = `sudo apt update && sudo apt install ${packageData.args.package}`
+        break
+      }
+      case "upgrade": {
+        packageShellCommand = `sudo apt update && sudo apt upgrade ${packageData.args.package}`
+        break
+      }
+      case "remove": {
+        packageShellCommand = `sudo apt remove ${packageData.args.package}`
+        break
+      }
+      default: {
+        throw new Error("Unrecognised package command.  Valid commands: install, upgrade, remove")
+      }
+    }
+    // need a try/catch block around both of these
+    this.runConfigChangeset(packageShellCommand)
+    if (packageData.restart) {
+      this.handleRestartOnTask(packageData.restart.service)
+    }
   }
 
-  parseFileOptions (): void {
-    // file create
-    // file update
-    // file delete
-    // note: untie metadata?
+  private parseFileOptions (fileData: FileTask): void {
+    let fileShellCommand: string
+    switch(fileData.command){
+      case "create": {
+        fileShellCommand = 'create'
+        break
+      }
+      case "modify": {
+        fileShellCommand = 'modify'
+        break
+      }
+      case "delete": {
+        fileShellCommand = 'delete'
+        break
+      }
+      default: {
+        throw new Error("Unrecognised file command.  Valid commands: create, modify, delete")
+      }
+    }
+    // this section will need to pull in args
+    // untie metadata changes from file changes?
+    // need a try/catch block around both of these
+    this.runConfigChangeset(fileShellCommand)
+    if (fileData.restart) {
+      this.handleRestartOnTask(fileData.restart.service)
+    }
   }
 
-  parseServerOptions (): void {
-    // start/stop/restart server on changes
-    // should this be a separate task?
+  private parseServiceOptions (serviceData: ServiceTask): void {
+    let serviceShellCommand: string
+    switch(serviceData.command){
+      case "start": {
+        serviceShellCommand = `sudo systemctl start ${serviceData.args.service}`
+        break
+      }
+      case "restart": {
+        serviceShellCommand = `sudo systemctl restart ${serviceData.args.service}`
+        break
+      }
+      case "stop": {
+        serviceShellCommand = `sudo systemctl stop ${serviceData.args.service}`
+        break
+      }
+      default: {
+        throw new Error("Unrecognised service command.  Valid commands: start, restart, stop")
+      }
+    }
+    // need a try/catch block here
+    this.runConfigChangeset(serviceShellCommand)
   }
 
-  checkCurrentState (): void {
+  private handleRestartOnTask (service: string): void {
+    let restartCommand = `sudo systemctl restart ${service}`
+    // need some sort of error handling here
+    this.runConfigChangeset(restartCommand)
+  }
+
+  // handle the case where a server restart is attached to a task
+
+  private checkCurrentState (): boolean {
+    let configShouldApply = true
     // run command which checks current state
-    // if current state does not match desired configuration, hand off to execute
+    // if current state matches desired state, configShouldApply becomes false
+    return configShouldApply
   }
 
-  executeStep (): void {
-    // execute configuration change
-    // return success or failure
+  private executeStep (shellCommand: string): void {
+    exec(shellCommand, (err, stdout, stderr) => {
+      // handle responses and callbacks from the shell
+    })
+    // will need error handling here
+    // return success or failure?
   }
 
-  runConfigChangeset (): void {
-
+  private runConfigChangeset (configShellCommand: string): void {
+    // error handling
+    let applyChange = this.checkCurrentState()
+    if (applyChange) {
+      this.executeStep(configShellCommand)
+    }
   }
 }
 
