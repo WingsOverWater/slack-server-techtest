@@ -1,0 +1,22 @@
+{
+  "name": "slack-server-techtest",
+  "version": "0.0.1",
+  "description": "Basic configuration management tool for Debian-based Linux servers",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lisushka/slack-server-techtest.git"
+  },
+  "author": "Dawn E. Collett",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lisushka/slack-server-techtest/issues"
+  },
+  "homepage": "https://github.com/lisushka/slack-server-techtest#readme",
+  "dependencies": {
+    "typescript": "^4.8.4"
+  }
+}
