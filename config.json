@@ -1,0 +1,39 @@
+{
+  "tasks": [
+    {
+      "name": "Install PHP",
+      "type": "apt-install",
+      "args": {
+        "package": "php"
+      }
+    },
+    {
+      "name": "Install Apache",
+      "type": "apt-install",
+      "args": {
+        "package": "apache2"
+      }
+    },
+    {
+      "name": "Install Apache PHP module",
+      "type": "apt-install",
+      "args": {
+        "package": "libapache2-mod-php"
+      },
+      "restart": true,
+      "service": "apache2.service"
+    },
+    {
+      "name": "Create PHP file",
+      "type": "file-create",
+      "args": {
+        "content": null,
+        "owner": "root",
+        "group": "admin",
+        "perms": 744
+      },
+      "restart": true,
+      "service": "apache2.service"
+    }
+  ]
+}
