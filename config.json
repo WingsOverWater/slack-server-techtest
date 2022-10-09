@@ -23,8 +23,9 @@
       "args": {
         "package": "libapache2-mod-php"
       },
-      "restart": true,
-      "service": "apache2.service"
+      "restart": {
+        "service": "apache2.service"
+      }
     },
     {
       "name": "Create PHP file",
@@ -36,8 +37,9 @@
         "group": "admin",
         "perms": 744
       },
-      "restart": true,
-      "service": "apache2.service"
+      "restart": {
+        "service": "apache2.service"
+      }
     }
   ]
 }
