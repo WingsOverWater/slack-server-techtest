@@ -2,21 +2,24 @@
   "tasks": [
     {
       "name": "Install PHP",
-      "type": "apt-install",
+      "type": "package",
+      "command": "install",
       "args": {
         "package": "php"
       }
     },
     {
       "name": "Install Apache",
-      "type": "apt-install",
+      "type": "package",
+      "command": "install",
       "args": {
         "package": "apache2"
       }
     },
     {
       "name": "Install Apache PHP module",
-      "type": "apt-install",
+      "type": "package",
+      "command": "install",
       "args": {
         "package": "libapache2-mod-php"
       },
@@ -25,7 +28,8 @@
     },
     {
       "name": "Create PHP file",
-      "type": "file-create",
+      "type": "file",
+      "command": "create",
       "args": {
         "content": null,
         "owner": "root",
