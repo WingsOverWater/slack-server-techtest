@@ -57,29 +57,32 @@ class ConfigurationParser {
   // is a singleton class the right way to do this?
 
   readConfig (filePath: string): void {
-    this.configData = JSON.parse(fs.readFileSync(path.join(__dirname, filePath), 'utf8'))
-    // this either needs a try/catch or an if/else to pick up files which don't exist
-    // may not be able to differentiate between failure to parse the JSON and an invalid file name?
+    try {
+      this.configData = JSON.parse(fs.readFileSync(path.join(__dirname, filePath), 'utf8'))
+    } catch (error) {
+      throw new Error(`File ${filePath} is missing or malformed.  ${error}`)
+    }
+    // may not be able to differentiate between failure to parse the JSON and an invalid file name?  need to test
     this.createConfig(this.configData)
     }
 
   private createConfig (configData: ConfigData): void {
     configData.tasks.forEach(taskData => {
       switch(taskData.type){
-        case "package": {
+        case 'package': {
           this.parsePackageOptions(taskData as PackageTask)
           break
         }
-        case "file": {
+        case 'file': {
           this.parseFileOptions(taskData as FileTask)
           break
         }
-        case "service": {
+        case 'service': {
           this.parseServiceOptions(taskData as ServiceTask)
           break
         }
         default: {
-          throw new Error("Unrecognised task type.  Valid tasks: package, file, service")
+          throw new Error('Unrecognised task type.  Valid tasks: package, file, service')
         }
       }
     })
@@ -88,87 +91,97 @@ class ConfigurationParser {
   private parsePackageOptions (packageData: PackageTask): void {
     let packageShellCommand: string
     switch(packageData.command){
-      case "install": {
+      case 'install': {
         packageShellCommand = `sudo apt update && sudo apt install ${packageData.args.package}`
         break
       }
-      case "upgrade": {
+      case 'upgrade': {
         packageShellCommand = `sudo apt update && sudo apt upgrade ${packageData.args.package}`
         break
       }
-      case "remove": {
+      case 'remove': {
         packageShellCommand = `sudo apt remove ${packageData.args.package}`
         break
       }
       default: {
-        throw new Error("Unrecognised package command.  Valid commands: install, upgrade, remove")
+        throw new Error('Unrecognised package command.  Valid commands: install, upgrade, remove')
       }
     }
-    // need a try/catch block around both of these
-    this.runConfigChangeset(packageShellCommand)
-    if (packageData.restart) {
-      this.handleRestartOnTask(packageData.restart.service)
+    try {
+      this.runConfigChangeset(packageShellCommand)
+      if (packageData.restart) {
+        this.handleRestartOnTask(packageData.restart.service)
+      }
+    } catch (error) {
+      throw new Error(`Changeset execution failed: ${error}`)
     }
   }
 
   private parseFileOptions (fileData: FileTask): void {
     let fileShellCommand: string
     switch(fileData.command){
-      case "create": {
+      case 'create': {
         fileShellCommand = 'create'
         break
       }
-      case "modify": {
+      case 'modify': {
         fileShellCommand = 'modify'
         break
       }
-      case "delete": {
+      case 'delete': {
         fileShellCommand = 'delete'
         break
       }
       default: {
-        throw new Error("Unrecognised file command.  Valid commands: create, modify, delete")
+        throw new Error('Unrecognised file command.  Valid commands: create, modify, delete')
       }
     }
     // this section will need to pull in args
     // untie metadata changes from file changes?
-    // need a try/catch block around both of these
-    this.runConfigChangeset(fileShellCommand)
-    if (fileData.restart) {
-      this.handleRestartOnTask(fileData.restart.service)
+    try {
+      this.runConfigChangeset(fileShellCommand)
+      if (fileData.restart) {
+        this.handleRestartOnTask(fileData.restart.service)
+      }
+    } catch (error) {
+      throw new Error(`Changeset execution failed: ${error}`)
     }
   }
 
   private parseServiceOptions (serviceData: ServiceTask): void {
     let serviceShellCommand: string
     switch(serviceData.command){
-      case "start": {
+      case 'start': {
         serviceShellCommand = `sudo systemctl start ${serviceData.args.service}`
         break
       }
-      case "restart": {
+      case 'restart': {
         serviceShellCommand = `sudo systemctl restart ${serviceData.args.service}`
         break
       }
-      case "stop": {
+      case 'stop': {
         serviceShellCommand = `sudo systemctl stop ${serviceData.args.service}`
         break
       }
       default: {
-        throw new Error("Unrecognised service command.  Valid commands: start, restart, stop")
+        throw new Error('Unrecognised service command.  Valid commands: start, restart, stop')
       }
     }
-    // need a try/catch block here
-    this.runConfigChangeset(serviceShellCommand)
+    try {
+      this.runConfigChangeset(serviceShellCommand)
+    } catch (error) {
+      throw new Error(`Changeset execution failed: ${error}`)
+    }
   }
 
   private handleRestartOnTask (service: string): void {
     let restartCommand = `sudo systemctl restart ${service}`
-    // need some sort of error handling here
-    this.runConfigChangeset(restartCommand)
+    try {
+      this.runConfigChangeset(restartCommand)
+    } catch (error) {
+      throw new Error(`Server restart failed: ${error}`)
+    }
   }
-
-  // handle the case where a server restart is attached to a task
 
   private checkCurrentState (): boolean {
     let configShouldApply = true
@@ -178,18 +191,24 @@ class ConfigurationParser {
   }
 
   private executeStep (shellCommand: string): void {
-    exec(shellCommand, (err, stdout, stderr) => {
-      // handle responses and callbacks from the shell
-    })
-    // will need error handling here
+    try {
+      exec(shellCommand, (err, stdout, stderr) => {
+        // handle responses and callbacks from the shell
+      })
+    } catch (error) {
+      // unsure of what sort of error handling should happen here - maybe not the correct structure?
+    }
     // return success or failure?
   }
 
   private runConfigChangeset (configShellCommand: string): void {
-    // error handling
     let applyChange = this.checkCurrentState()
-    if (applyChange) {
-      this.executeStep(configShellCommand)
+    try {
+      if (applyChange) {
+        this.executeStep(configShellCommand)
+      }
+    } catch (error) {
+      throw new Error(`Command failed to execute: ${error}`)
     }
   }
 }
