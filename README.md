@@ -22,3 +22,4 @@
 * explanation of parsing tasks on the fly rather than parsing the entire file and then handing off in turn - I'm unsure that parsing on the fly is the right way to do this, but for a proof of concept, it seemed to result in cleaner, more readable code
 * note about the package manager section not handling packages which aren't in the default Debian repos
 * lack of testing and possibly missing error handling - testing was done on the fly, more error handling would be the first thing that I'd want to fix
+* typing is fairly lazy - could use enumerables to fix a lot of this
