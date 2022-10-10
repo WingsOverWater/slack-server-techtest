@@ -23,3 +23,6 @@
 * note about the package manager section not handling packages which aren't in the default Debian repos
 * lack of testing and possibly missing error handling - testing was done on the fly, more error handling would be the first thing that I'd want to fix
 * typing is fairly lazy - could use enumerables to fix a lot of this
+* the tool overwrites rather than appending when files are changed - this was based on my read of the specs (as specifying content), but should be extended for a production tool
+* creating the file if it doesn't exist is so that a blank file can be specified with just a name
+* there's no failure handling for multi-step commands
