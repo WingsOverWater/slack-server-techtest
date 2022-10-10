@@ -4,8 +4,8 @@ import * as path from 'path'
 
 export interface Task {
   name: string
-  type: string // possibly should be enum?
-  command: string
+  type: string
+  command?: string
   args: {} // this may not parse correctly?
   restart?: {
     service: string
@@ -14,7 +14,7 @@ export interface Task {
 
 export interface PackageTask {
   name: string
-  type: string // possibly should be enum?
+  type: string
   command: string
   args: {
     package: string
@@ -26,13 +26,13 @@ export interface PackageTask {
 
 export interface FileTask {
   name: string
-  type: string // possibly should be enum?
-  command: string
+  type: string
   args: {
-    content: string
-    owner: string
-    group: string
-    perms: string
+    name: string
+    content?: string
+    owner?: string
+    group?: string
+    perms?: string
   }
   restart?: {
     service: string
@@ -41,7 +41,7 @@ export interface FileTask {
 
 export interface ServiceTask {
   name: string
-  type: string // possibly should be enum?
+  type: string
   command: string
   args: {
     service: string
@@ -70,15 +70,30 @@ class ConfigurationParser {
     configData.tasks.forEach(taskData => {
       switch(taskData.type){
         case 'package': {
-          this.parsePackageOptions(taskData as PackageTask)
+          try {
+            this.parsePackageOptions(taskData as PackageTask)
+          }
+          catch (error) {
+            throw new Error(`Step ${taskData.name} is missing a required argument: ${error}`)
+          }
           break
         }
         case 'file': {
-          this.parseFileOptions(taskData as FileTask)
+          try {
+            this.parseFileOptions(taskData as FileTask)
+          }
+          catch (error) {
+            throw new Error(`Step ${taskData.name} is missing a required argument: ${error}`)
+          }
           break
         }
         case 'service': {
-          this.parseServiceOptions(taskData as ServiceTask)
+          try {
+            this.parseServiceOptions(taskData as ServiceTask)
+          }
+          catch (error) {
+            throw new Error(`Step ${taskData.name} is missing a required argument: ${error}`)
+          }
           break
         }
         default: {
@@ -118,28 +133,24 @@ class ConfigurationParser {
   }
 
   private parseFileOptions (fileData: FileTask): void {
-    let fileShellCommand: string
-    switch(fileData.command){
-      case 'create': {
-        fileShellCommand = 'create'
-        break
-      }
-      case 'modify': {
-        fileShellCommand = 'modify'
-        break
-      }
-      case 'delete': {
-        fileShellCommand = 'delete'
-        break
-      }
-      default: {
-        throw new Error('Unrecognised file command.  Valid commands: create, modify, delete')
-      }
-    }
-    // this section will need to pull in args
-    // untie metadata changes from file changes?
+    // need to handle the case where just the name is given, which is a create blank if not created
     try {
-      this.runConfigChangeset(fileShellCommand)
+      if (fileData.args.content != undefined) {
+        let fileContentCommand = `printf ${fileData.args.content} > ${fileData.args.name}`
+        this.runConfigChangeset(fileContentCommand)
+      }
+      if (fileData.args.owner != undefined) {
+        let fileOwnerCommand = `sudo chown ${fileData.args.owner} ${fileData.args.name}`
+        this.runConfigChangeset(fileOwnerCommand)
+      }
+      if (fileData.args.group != undefined) {
+        let fileGroupCommand = `sudo chgrp ${fileData.args.group} ${fileData.args.name}`
+        this.runConfigChangeset(fileGroupCommand)
+      }
+      if (fileData.args.perms != undefined) {
+        let filePermsCommand = `sudo chmod ${fileData.args.perms} ${fileData.args.name}`
+        this.runConfigChangeset(filePermsCommand)
+      }
       if (fileData.restart) {
         this.handleRestartOnTask(fileData.restart.service)
       }
@@ -196,9 +207,9 @@ class ConfigurationParser {
         // handle responses and callbacks from the shell
       })
     } catch (error) {
+      throw new Error(error)
       // unsure of what sort of error handling should happen here - maybe not the correct structure?
     }
-    // return success or failure?
   }
 
   private runConfigChangeset (configShellCommand: string): void {
