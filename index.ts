@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { exec } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -6,13 +8,13 @@ export interface Task {
   name: string
   type: string
   command?: string
-  args: {} // this may not parse correctly?
+  args: {}
   restart?: {
     service: string
   }
 }
 
-export interface PackageTask {
+interface PackageTask {
   name: string
   type: string
   command: string
@@ -24,7 +26,7 @@ export interface PackageTask {
   }
 }
 
-export interface FileTask {
+interface FileTask {
   name: string
   type: string
   args: {
@@ -39,7 +41,7 @@ export interface FileTask {
   }
 }
 
-export interface ServiceTask {
+interface ServiceTask {
   name: string
   type: string
   command: string
@@ -48,219 +50,163 @@ export interface ServiceTask {
   }
 }
 
-export interface ConfigData {
+interface ConfigData {
   tasks: Array<Task>
 }
 
-class ConfigurationParser {
-  private configData: ConfigData
-  // is a singleton class the right way to do this?
-
-  readConfig (filePath: string): void {
-    try {
-      this.configData = JSON.parse(fs.readFileSync(path.join(__dirname, filePath), 'utf8'))
-    } catch (error) {
-      throw new Error(`File ${filePath} is missing or malformed.  ${error}`)
-    }
-    // may not be able to differentiate between failure to parse the JSON and an invalid file name?  need to test
-    this.createConfig(this.configData)
-    }
-
-  private createConfig (configData: ConfigData): void {
-    configData.tasks.forEach(taskData => {
-      switch(taskData.type){
-        case 'package': {
-          try {
-            this.parsePackageOptions(taskData as PackageTask)
-          }
-          catch (error) {
-            throw new Error(`Step ${taskData.name} is missing a required argument: ${error}`)
-          }
-          break
-        }
-        case 'file': {
-          try {
-            this.parseFileOptions(taskData as FileTask)
-          }
-          catch (error) {
-            throw new Error(`Step ${taskData.name} is missing a required argument: ${error}`)
-          }
-          break
-        }
-        case 'service': {
-          try {
-            this.parseServiceOptions(taskData as ServiceTask)
-          }
-          catch (error) {
-            throw new Error(`Step ${taskData.name} is missing a required argument: ${error}`)
-          }
-          break
-        }
-        default: {
-          throw new Error('Unrecognised task type.  Valid tasks: package, file, service')
-        }
-      }
-    })
+function readConfig (filePath: string): void {
+  let configData: ConfigData
+  try {
+    configData = JSON.parse(fs.readFileSync(path.join(__dirname, filePath), 'utf8'))
+  } catch (error) {
+    throw new Error(`File ${filePath} is missing or malformed.  ${error}`)
   }
+  // may not be able to differentiate between failure to parse the JSON and an invalid file name?  need to test
+  createConfig(configData)
+}
 
-  private parsePackageOptions (packageData: PackageTask): void {
-    switch(packageData.command){
-      case 'install': {
-        this.installPackage(packageData.args.package)
+function createConfig (configData: ConfigData): void {
+  configData.tasks.forEach(taskData => {
+    switch(taskData.type){
+      case 'package': {
+        try {
+          parsePackageOptions(taskData as PackageTask)
+        }
+        catch (error) {
+          throw new Error(`Step ${taskData.name} is missing a required argument: ${error}`)
+        }
         break
       }
-      case 'upgrade': {
-        this.upgradePackage(packageData.args.package)
+      case 'file': {
+        try {
+          parseFileOptions(taskData as FileTask)
+        }
+        catch (error) {
+          throw new Error(`Step ${taskData.name} is missing a required argument: ${error}`)
+        }
         break
       }
-      case 'remove': {
-        this.removePackage(packageData.args.package)
+      case 'service': {
+        try {
+          parseServiceOptions(taskData as ServiceTask)
+        }
+        catch (error) {
+          throw new Error(`Step ${taskData.name} is missing a required argument: ${error}`)
+        }
         break
       }
       default: {
-        throw new Error('Unrecognised package command.  Valid commands: install, upgrade, remove')
+        throw new Error('Unrecognised task type.  Valid tasks: package, file, service')
       }
     }
-    try {
-      if (packageData.restart) {
-        this.handleRestartOnTask(packageData.restart.service)
-      }
-    } catch (error) {
-      throw new Error(`System task restart failed: ${error}`)
+  })
+}
+
+// these two methods should be generalisable, I just can't work out how yet
+function runCommandWithCheck (changeCommand: string, checkCommand: string, condition: string): void {
+  try {
+    let check = runShellCommand(checkCommand)
+    if (check == condition) {
+      runShellCommand(changeCommand)
+    }
+  } catch (error) {
+    throw new Error(`Changeset execution failed: ${error}`)
+  }
+}
+
+function runCommandWithNotNullCheck (changeCommand: string, checkCommand: string): void {
+  try {
+    let check = runShellCommand(checkCommand)
+    if (check != "") {
+      runShellCommand(changeCommand)
+    }
+  } catch (error) {
+    throw new Error(`Changeset execution failed: ${error}`)
+  }
+}
+
+function parsePackageOptions (packageData: PackageTask): void {
+  switch(packageData.command){
+    case 'install': {
+      runCommandWithNotNullCheck(`sudo apt update && sudo apt install ${packageData.args.package}`, `apt --installed list | grep ${packageData.args.package}`)
+      break
+    }
+    case 'upgrade': {
+      runCommandWithNotNullCheck(`sudo apt update && sudo apt upgrade ${packageData.args.package}`, `apt --installed list | grep ${packageData.args.package}`)
+      break
+    }
+    case 'remove': {
+      runCommandWithCheck(`sudo apt update && sudo apt remove ${packageData.args.package}`, `apt --installed list | grep ${packageData.args.package}`, "")
+      break
+    }
+    default: {
+      throw new Error('Unrecognised package command.  Valid commands: install, upgrade, remove')
     }
   }
-
-  private installPackage (packageName: string): void {
-    let packageShellCommand = `sudo apt update && sudo apt install ${packageName}`
-    let installCheckCommand = `apt --installed list | grep ${packageName}`
-    try {
-      let installCheck = this.runShellCommand(installCheckCommand)
-      if (installCheck != "") {
-        this.runShellCommand(packageShellCommand)
-      }
-    } catch (error) {
-      throw new Error(`Changeset execution failed: ${error}`)
+  try {
+    if (packageData.restart) {
+      handleRestartOnTask(packageData.restart.service)
     }
+  } catch (error) {
+    throw new Error(`System task restart failed: ${error}`)
   }
+}
 
-  private upgradePackage (packageName: string): void {
-    let packageShellCommand = `sudo apt update && sudo apt upgrade ${packageName}`
-    let installCheckCommand = `apt --installed list | grep ${packageName}`
-    try {
-      let installCheck = this.runShellCommand(installCheckCommand)
-      if (installCheck != "") {
-        this.runShellCommand(packageShellCommand)
-      }
-    } catch (error) {
-      throw new Error(`Changeset execution failed: ${error}`)
+function parseFileOptions (fileData: FileTask): void {
+  runCommandWithCheck(`touch ${fileData.name}`, `find . -type f -name ${fileData.name}`, `./${fileData.name}`)
+  if (fileData.args.content != undefined) {
+    // need to run a check here
+    runShellCommand(`printf ${fileData.args.content} > ${fileData.args.name}`)
+  }
+  if (fileData.args.owner != undefined) {
+    runCommandWithCheck(`sudo chown ${fileData.args.owner} ${fileData.args.name}`, `stat -c '%U' ${fileData.args.name}`, fileData.args.owner)
+  }
+  if (fileData.args.group != undefined) {
+    runCommandWithCheck(`sudo chgrp ${fileData.args.group} ${fileData.args.name}`, `stat -c '%G' ${fileData.args.name}`, fileData.args.group)
+  }
+  if (fileData.args.perms != undefined) {
+    runShellCommand(`sudo chmod ${fileData.args.perms} ${fileData.args.name}`)
+  }
+}
+
+function parseServiceOptions (serviceData: ServiceTask): void {
+  switch(serviceData.command){
+    case 'start': {
+      runCommandWithCheck(`sudo systemctl start ${serviceData.args.service}`, `systemctl is-enabled ${serviceData.args.service}`, 'disabled')
+      break
     }
-  }
-
-  private removePackage (packageName: string): void {
-    let packageShellCommand = `sudo apt remove ${packageName}`
-    let installCheckCommand = `apt --installed list | grep ${packageName}`
-    try {
-      let installCheck = this.runShellCommand(installCheckCommand)
-      if (installCheck == "") {
-        this.runShellCommand(packageShellCommand)
-      }
-    } catch (error) {
-      throw new Error(`Changeset execution failed: ${error}`)
+    case 'restart': {
+      runCommandWithCheck(`sudo systemctl restart ${serviceData.args.service}`, `systemctl is-enabled ${serviceData.args.service}`, 'enabled')
+      break
     }
-  }
-
-  private parseFileOptions (fileData: FileTask): void {
-    // need to handle the case where just the name is given, which is a create blank if not created
-    try {
-      if (fileData.args.content != undefined) {
-        let fileContentCommand = `printf ${fileData.args.content} > ${fileData.args.name}`
-        this.runConfigChangeset(fileContentCommand)
-      }
-      if (fileData.args.owner != undefined) {
-        let fileOwnerCommand = `sudo chown ${fileData.args.owner} ${fileData.args.name}`
-        this.runConfigChangeset(fileOwnerCommand)
-      }
-      if (fileData.args.group != undefined) {
-        let fileGroupCommand = `sudo chgrp ${fileData.args.group} ${fileData.args.name}`
-        this.runConfigChangeset(fileGroupCommand)
-      }
-      if (fileData.args.perms != undefined) {
-        let filePermsCommand = `sudo chmod ${fileData.args.perms} ${fileData.args.name}`
-        this.runConfigChangeset(filePermsCommand)
-      }
-      if (fileData.restart) {
-        this.handleRestartOnTask(fileData.restart.service)
-      }
-    } catch (error) {
-      throw new Error(`Changeset execution failed: ${error}`)
+    case 'stop': {
+      runCommandWithCheck(`sudo systemctl stop ${serviceData.args.service}`, `systemctl is-enabled ${serviceData.args.service}`, 'enabled')
+      break
     }
-  }
-
-  private parseServiceOptions (serviceData: ServiceTask): void {
-    let serviceShellCommand: string
-    switch(serviceData.command){
-      case 'start': {
-        serviceShellCommand = `sudo systemctl start ${serviceData.args.service}`
-        break
-      }
-      case 'restart': {
-        serviceShellCommand = `sudo systemctl restart ${serviceData.args.service}`
-        break
-      }
-      case 'stop': {
-        serviceShellCommand = `sudo systemctl stop ${serviceData.args.service}`
-        break
-      }
-      default: {
-        throw new Error('Unrecognised service command.  Valid commands: start, restart, stop')
-      }
-    }
-    try {
-      this.runConfigChangeset(serviceShellCommand)
-    } catch (error) {
-      throw new Error(`Changeset execution failed: ${error}`)
-    }
-  }
-
-  private handleRestartOnTask (service: string): void {
-    let restartCommand = `sudo systemctl restart ${service}`
-    try {
-      this.runConfigChangeset(restartCommand)
-    } catch (error) {
-      throw new Error(`Server restart failed: ${error}`)
-    }
-  }
-
-  private checkCurrentState (): boolean {
-    let configShouldApply = true
-    // run command which checks current state
-    // if current state matches desired state, configShouldApply becomes false
-    return configShouldApply
-  }
-
-  private executeStep (shellCommand: string): void {
-    try {
-      exec(shellCommand, (err, stdout, stderr) => {
-        // handle responses and callbacks from the shell
-      })
-    } catch (error) {
-      throw new Error(error)
-      // unsure of what sort of error handling should happen here - maybe not the correct structure?
-    }
-  }
-
-  private runConfigChangeset (configShellCommand: string): void {
-    let applyChange = this.checkCurrentState()
-    try {
-      if (applyChange) {
-        this.executeStep(configShellCommand)
-      }
-    } catch (error) {
-      throw new Error(`Command failed to execute: ${error}`)
+    default: {
+      throw new Error('Unrecognised service command.  Valid commands: start, restart, stop')
     }
   }
 }
 
-const configParser = new ConfigurationParser()
+function handleRestartOnTask (service: string): void {
+  let restartCommand = `sudo systemctl restart ${service}`
+  try {
+    runShellCommand(restartCommand)
+  } catch (error) {
+    throw new Error(`Server restart failed: ${error}`)
+  }
+}
 
-export default configParser
+function runShellCommand (shellCommand: string): string {
+  try {
+    exec(shellCommand, (err, stdout, stderr) => {
+      // handle responses and callbacks from the shell
+    })
+  } catch (error) {
+    throw new Error(`Command failed to execute: ${error}`)
+    // unsure of what sort of error handling should happen here - maybe not the correct structure?
+  }
+}
+
+readConfig('config.json')
