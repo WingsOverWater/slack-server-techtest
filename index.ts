@@ -104,18 +104,17 @@ class ConfigurationParser {
   }
 
   private parsePackageOptions (packageData: PackageTask): void {
-    let packageShellCommand: string
     switch(packageData.command){
       case 'install': {
-        packageShellCommand = `sudo apt update && sudo apt install ${packageData.args.package}`
+        this.installPackage(packageData.args.package)
         break
       }
       case 'upgrade': {
-        packageShellCommand = `sudo apt update && sudo apt upgrade ${packageData.args.package}`
+        this.upgradePackage(packageData.args.package)
         break
       }
       case 'remove': {
-        packageShellCommand = `sudo apt remove ${packageData.args.package}`
+        this.removePackage(packageData.args.package)
         break
       }
       default: {
@@ -123,9 +122,47 @@ class ConfigurationParser {
       }
     }
     try {
-      this.runConfigChangeset(packageShellCommand)
       if (packageData.restart) {
         this.handleRestartOnTask(packageData.restart.service)
+      }
+    } catch (error) {
+      throw new Error(`System task restart failed: ${error}`)
+    }
+  }
+
+  private installPackage (packageName: string): void {
+    let packageShellCommand = `sudo apt update && sudo apt install ${packageName}`
+    let installCheckCommand = `apt --installed list | grep ${packageName}`
+    try {
+      let installCheck = this.runShellCommand(installCheckCommand)
+      if (installCheck != "") {
+        this.runShellCommand(packageShellCommand)
+      }
+    } catch (error) {
+      throw new Error(`Changeset execution failed: ${error}`)
+    }
+  }
+
+  private upgradePackage (packageName: string): void {
+    let packageShellCommand = `sudo apt update && sudo apt upgrade ${packageName}`
+    let installCheckCommand = `apt --installed list | grep ${packageName}`
+    try {
+      let installCheck = this.runShellCommand(installCheckCommand)
+      if (installCheck != "") {
+        this.runShellCommand(packageShellCommand)
+      }
+    } catch (error) {
+      throw new Error(`Changeset execution failed: ${error}`)
+    }
+  }
+
+  private removePackage (packageName: string): void {
+    let packageShellCommand = `sudo apt remove ${packageName}`
+    let installCheckCommand = `apt --installed list | grep ${packageName}`
+    try {
+      let installCheck = this.runShellCommand(installCheckCommand)
+      if (installCheck == "") {
+        this.runShellCommand(packageShellCommand)
       }
     } catch (error) {
       throw new Error(`Changeset execution failed: ${error}`)
