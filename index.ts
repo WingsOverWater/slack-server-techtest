@@ -4,6 +4,10 @@ import { exec } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 
+// convert everything to async to handle the callbacks
+// add some output messages so that the user knows what's going on
+// move the server restart task in with the check, so that it doesn't happen when the check fails
+
 export interface Task {
   name: string
   type: string
@@ -201,7 +205,7 @@ function handleRestartOnTask (service: string): void {
 function runShellCommand (shellCommand: string): string {
   try {
     exec(shellCommand, (err, stdout, stderr) => {
-      // handle responses and callbacks from the shell
+      callback: 
     })
   } catch (error) {
     throw new Error(`Command failed to execute: ${error}`)
