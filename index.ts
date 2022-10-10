@@ -4,8 +4,6 @@ import { exec } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 
-// add some output messages so that the user knows what's going on
-
 export interface Task {
   name: string
   type: string
@@ -59,6 +57,7 @@ interface ConfigData {
 async function readConfig (filePath: string): Promise<void> {
   let configData: ConfigData
   try {
+    console.log(`Reading data from ${filePath}`)
     configData = JSON.parse(fs.readFileSync(path.join(__dirname, filePath), 'utf8'))
   } catch (error) {
     throw new Error(`File ${filePath} is missing or malformed.  ${error}`)
@@ -134,6 +133,7 @@ async function runCommandWithNotNullCheck (changeCommand: string, checkCommand: 
 }
 
 async function parsePackageOptions (packageData: PackageTask): Promise<void> {
+  console.log(`Executing task ${packageData.name}...`)
   switch(packageData.command){
     case 'install': {
       await runCommandWithNotNullCheck(`sudo apt update && sudo apt install ${packageData.args.package}`, `apt --installed list | grep ${packageData.args.package}`, packageData.restart)
@@ -155,6 +155,7 @@ async function parsePackageOptions (packageData: PackageTask): Promise<void> {
 }
 
 async function parseFileOptions (fileData: FileTask): Promise<void> {
+  console.log(`Executing task ${fileData.name}...`)
   await runCommandWithCheck(`touch ${fileData.name}`, `find . -type f -name ${fileData.name}`, `./${fileData.name}`, fileData.restart)
   if (fileData.args.content != undefined) {
     // need to run a check here
@@ -172,6 +173,7 @@ async function parseFileOptions (fileData: FileTask): Promise<void> {
 }
 
 async function parseServiceOptions (serviceData: ServiceTask): Promise<void> {
+  console.log(`Executing task ${serviceData.name}...`)
   switch(serviceData.command){
     case 'start': {
       await runCommandWithCheck(`sudo systemctl start ${serviceData.args.service}`, `systemctl is-enabled ${serviceData.args.service}`, 'disabled', undefined)
@@ -192,6 +194,7 @@ async function parseServiceOptions (serviceData: ServiceTask): Promise<void> {
 }
 
 async function handleRestartOnTask (service: string): Promise<void> {
+  console.log(`Restarting service ${service}...`)
   let restartCommand = `sudo systemctl restart ${service}`
   try {
     await runShellCommand(restartCommand)
