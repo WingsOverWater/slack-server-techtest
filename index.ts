@@ -164,9 +164,8 @@ async function parseFileOptions (fileData: FileTask): Promise<void> {
   } else {
     fileChanged = await runCommandWithCheck('sh', ['-c', `touch ${fileData.args.path}/${fileData.args.name}`], !fileExists.includes(fileData.args.name))
     if (fileData.args.content != undefined) {
-      let fileContentMatches = await runShellCommand('sh', ['-c', `echo ${fileData.args.path}/${fileData.args.name}`], false) == await runShellCommand('sh', ['-c', `echo ${fileData.args.content}`], false)
       try {
-        fileChanged = await runCommandWithCheck('sh', ['-c', `echo ${fileData.args.content} > ${fileData.args.path}/${fileData.args.name}`], fileContentMatches)
+        fileChanged = await runCommandWithCheck('sh', ['-c', `echo ${fileData.args.content} > ${fileData.args.path}/${fileData.args.name}`], fileExists.includes(fileData.args.name))
       } catch (error) {
         throw new Error(`Content change failed to execute: ${error}`)
       }
