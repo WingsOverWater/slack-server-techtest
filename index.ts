@@ -155,11 +155,14 @@ async function parsePackageOptions (packageData: PackageTask): Promise<void> {
 async function parseFileOptions (fileData: FileTask): Promise<void> {
   console.log(`***Executing task ${fileData.name}...***`)
   let fileExists = await runShellCommand('sh', ['-c', `find ${fileData.args.path} -type f -name ${fileData.args.name}`], false)
+  if (fileExists == undefined) {
+    fileExists = ''
+  }
   let fileChanged = false
   if (fileData.args.remove) {
     fileChanged = await runCommandWithCheck('sh', ['-c', `sudo rm ${fileData.args.path}/${fileData.args.name}`], fileExists.includes(fileData.args.name))
   } else {
-    fileChanged = await runCommandWithCheck('sh', ['-c', `touch ${fileData.args.path}/${fileData.args.name}`], !(fileExists.includes(fileData.args.name)))
+    fileChanged = await runCommandWithCheck('sh', ['-c', `touch ${fileData.args.path}/${fileData.args.name}`], !fileExists.includes(fileData.args.name))
     if (fileData.args.content != undefined) {
       let fileContentMatches = await runShellCommand('sh', ['-c', `echo ${fileData.args.path}/${fileData.args.name}`], false) == await runShellCommand('sh', ['-c', `echo ${fileData.args.content}`], false)
       try {
@@ -169,10 +172,10 @@ async function parseFileOptions (fileData: FileTask): Promise<void> {
       }
     }
     if (fileData.args.owner != undefined) {
-      fileChanged = await runCommandWithCheck('sh', ['-c', `sudo chown ${fileData.args.owner} ${fileData.args.path}/${fileData.args.name}`], await runShellCommand('sh', ['-c', `stat -c '%U' ${fileData.args.name}`], false) == fileData.args.owner)
+      fileChanged = await runCommandWithCheck('sh', ['-c', `sudo chown ${fileData.args.owner} ${fileData.args.path}/${fileData.args.name}`], await runShellCommand('sh', ['-c', `stat -c '%U' ${fileData.args.path}/${fileData.args.name}`], false) == fileData.args.owner)
     }
     if (fileData.args.group != undefined) {
-      fileChanged = await runCommandWithCheck('sh', ['-c', `sudo chgrp ${fileData.args.group} ${fileData.args.path}/${fileData.args.name}`], await runShellCommand('sh', ['-c', `stat -c '%G' ${fileData.args.name}`], false) == fileData.args.group)
+      fileChanged = await runCommandWithCheck('sh', ['-c', `sudo chgrp ${fileData.args.group} ${fileData.args.path}/${fileData.args.name}`], await runShellCommand('sh', ['-c', `stat -c '%G' ${fileData.args.path}/${fileData.args.name}`], false) == fileData.args.group)
     }
     if (fileData.args.perms != undefined) {
       fileChanged = await runCommandWithCheck('sh', ['-c', `sudo chmod ${fileData.args.perms} ${fileData.args.path}/${fileData.args.name}`], fileExists.includes(fileData.args.name))
