@@ -4,9 +4,10 @@
 
 ### Installing the tool
 
-1. Open the root directory of this repo:
+1. Open the root directory of this repo and install NPM dependencies:
     ```bash
     cd slack-server-techtest
+    npm i
     ```
 1. Copy the bootstrap file onto the server:
     ```bash
