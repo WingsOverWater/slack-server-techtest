@@ -216,7 +216,7 @@ async function handleRestartOnTask (service: string): Promise<void> {
   try {
     await runShellCommand('sh', ['-c', restartCommand], true)
   } catch (error) {
-    throw new Error(`Server restart failed: ${error}`)
+    throw new Error(`Service restart failed: ${error}`)
   }
 }
 
